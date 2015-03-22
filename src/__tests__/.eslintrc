@@ -3,13 +3,6 @@
     "jasmine": true
   },
   "globals": {
-    "jest": true,
-    "React": true,
-    "getYouTubeId": true,
-    "globalize": true,
-    "createPlayer": true,
-    "YouTube": true,
-    "TestUtils": true,
-    "playerMock": true
+    "jest": true
   }
 }

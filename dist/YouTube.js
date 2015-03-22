@@ -93,10 +93,12 @@ var YouTube = (function (_React$Component) {
        */
 
       value: function _createPlayer() {
+        var _this = this;
+
         this._destroyPlayer();
 
         createPlayer(this.props, (function (player) {
-          this._setupPlayer(player);
+          _this._setupPlayer(player);
         }).bind(this));
       }
     },

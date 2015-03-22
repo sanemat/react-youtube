@@ -69,7 +69,7 @@ class YouTube extends React.Component {
   _createPlayer() {
     this._destroyPlayer();
 
-    createPlayer(this.props, function(player) {
+    createPlayer(this.props, (player) => {
       this._setupPlayer(player);
     }.bind(this));
   }

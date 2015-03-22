@@ -3,9 +3,12 @@
  */
 
 var React = require('react');
-var getYouTubeId = require('get-youtube-id');
 var globalize = require('random-global');
 var createPlayer = require('./lib/createPlayer');
+
+var internalPlayer;
+var playerReadyHandle;
+var stateChangeHandle;
 
 /**
  * Create a new `YouTube` component.
@@ -21,12 +24,15 @@ var YouTube = React.createClass({
     // custom ID for player element
     id: React.PropTypes.string,
 
-    // autoplay the video when loaded.
-    autoplay: React.PropTypes.bool,
+    // Options passed to a new `YT.Player` instance
+    // https://developers.google.com/youtube/iframe_api_reference#Loading_a_Video_Player
+    //
+    // NOTE: Do not include event listeners in here, they will be ignored.
+    //
+    opts: React.PropTypes.object,
 
     // event subscriptions
-    onPlayerReady: React.PropTypes.func,
-    onVideoReady: React.PropTypes.func,
+    onReady: React.PropTypes.func,
     onPlay: React.PropTypes.func,
     onPause: React.PropTypes.func,
     onEnd: React.PropTypes.func
@@ -35,57 +41,57 @@ var YouTube = React.createClass({
   getDefaultProps: function() {
     return {
       id: 'react-yt-player',
-      autoplay: false,
-      onPlayerReady: noop,
-      onVideoReady: noop,
+      opts: {},
+      onReady: noop,
       onPlay: noop,
       onPause: noop,
       onEnd: noop
     };
   },
 
-  getInitialState: function() {
-    return {
-      player: null,
-      playerReadyHandle: null,
-      stateChangeHandle: null
-    };
-  },
-
-  /**
-   * Once YouTube API had loaded, a new YT.Player
-   * instance will be created and its events bound.
-   */
-  
-  componentDidMount: function() {
-    var _this = this;
-
-    createPlayer(this.props.id, function(player) {
-      _this._setupPlayer(player);
-    });
-  },
-
-  /**
-   * If the `url` has changed, load it.
-   *
-   * @param {Object} nextProps
-   */
-
-  componentWillUpdate: function(nextProps) {
-    if (this.props.url !== nextProps.url) {
-      this._loadUrl(nextProps.url);
-    }
+  shouldComponentUpdate: function(nextProps) {
+    return nextProps.url !== this.props.url;
   },
 
   componentWillUnmount: function() {
-    this._unbindEvents();
-    this._destroyGlobalEventHandlers();
+    this._destroyPlayer();
   },
 
   render: function() {
+    this._createPlayer();
+
     return (
-      <div id={this.props.id}></div>
+      React.createElement('div', {id: this.props.id})
     );
+  },
+
+  /**
+   * Create a new `internalPlayer`.
+   *
+   * This is called on every render, which is only triggered after
+   * `props.url` has changed. Setting or changing any other props
+   * will *not* cause a new player to be loaded.
+   */
+
+  _createPlayer: function() {
+    this._destroyPlayer();
+
+    createPlayer(this.props, function(player) {
+      this._setupPlayer(player);
+    }.bind(this));
+  },
+
+  /**
+   * Destroy the currently embedded player/iframe and remove any event listeners
+   * bound to it.
+   */
+
+  _destroyPlayer: function() {
+    if (internalPlayer) {
+      this._unbindEvents();
+      this._destroyGlobalEventHandlers();
+      internalPlayer.destroy();
+    }
   },
 
   /**
@@ -95,23 +101,9 @@ var YouTube = React.createClass({
    */
 
   _setupPlayer: function(player) {
-    this.setState({player: player});
+    internalPlayer = player;
     this._globalizeEventHandlers();
     this._bindEvents();
-  },
-
-  /**
-   * Start a new video
-   *
-   * @param {String} url
-   */
-  
-  _loadUrl: function(url) {
-    if (this.props.autoplay) {
-      this.state.player.loadVideoById(getYouTubeId(url));
-    } else {
-      this.state.player.cueVideoById(getYouTubeId(url));
-    }
   },
 
   /**
@@ -121,10 +113,9 @@ var YouTube = React.createClass({
    * Is exposed in the global namespace under a random
    * name, see `_globalizeEventHandlers`
    */
-  
+
   _handlePlayerReady: function() {
-    this.props.onPlayerReady();
-    this._loadUrl(this.props.url);
+    this.props.onReady();
   },
 
   /**
@@ -137,15 +128,11 @@ var YouTube = React.createClass({
    *
    * @param {Object} event
    */
-  
+
   _handlePlayerStateChange: function(event) {
     switch(event.data) {
 
-      case window.YT.PlayerState.CUED:
-        this.props.onVideoReady();
-        break;
-      
-      case window.YT.PlayerState.ENDED: 
+      case window.YT.PlayerState.ENDED:
         this.props.onEnd();
         break;
 
@@ -157,7 +144,7 @@ var YouTube = React.createClass({
         this.props.onPause();
         break;
 
-      default: 
+      default:
         return;
     }
   },
@@ -171,10 +158,8 @@ var YouTube = React.createClass({
    */
 
   _globalizeEventHandlers: function() {
-    this.setState({
-      playerReadyHandle: globalize(this._handlePlayerReady),
-      stateChangeHandle: globalize(this._handlePlayerStateChange)
-    });
+    playerReadyHandle = globalize(this._handlePlayerReady);
+    stateChangeHandle = globalize(this._handlePlayerStateChange);
   },
 
   /**
@@ -182,8 +167,8 @@ var YouTube = React.createClass({
    */
 
   _destroyGlobalEventHandlers: function() {
-    delete window[this.state.playerReadyHandle];
-    delete window[this.state.stateChangeHandle];
+    delete window[playerReadyHandle];
+    delete window[stateChangeHandle];
   },
 
   /**
@@ -191,8 +176,8 @@ var YouTube = React.createClass({
    */
 
   _bindEvents: function() {
-    this.state.player.addEventListener('onReady', this.state.playerReadyHandle);
-    this.state.player.addEventListener('onStateChange', this.state.stateChangeHandle);
+    internalPlayer.addEventListener('onReady', playerReadyHandle);
+    internalPlayer.addEventListener('onStateChange', stateChangeHandle);
   },
 
   /**
@@ -200,8 +185,8 @@ var YouTube = React.createClass({
    */
 
   _unbindEvents: function() {
-    this.state.player.removeEventListener('onReady', this.state.playerReadyHandle);
-    this.state.player.removeEventListener('onStateChange', this.state.stateChangeHandle);
+    internalPlayer.removeEventListener('onReady', playerReadyHandle);
+    internalPlayer.removeEventListener('onStateChange', stateChangeHandle);
   }
 });
 

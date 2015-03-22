@@ -6,7 +6,7 @@ Simple [React](http://facebook.github.io/react/ ) component acting as a thin lay
 ## Features
 - url playback
 - playback event bindings
-- lazy API loading
+- [customizable player options](https://developers.google.com/youtube/player_parameters)
 
 ## Installation
 
@@ -15,65 +15,59 @@ $ npm install react-youtube
 ```
 
 Usage
+----
+```js
+<YouTube
+  url={string}            // required
+  id={string}             // defaults -> 'react-yt-player'
+  opts={obj}              // defaults -> {}
+  onReady={func}          // defaults -> noop
+  onPlay={func}           // defaults -> noop
+  onPause={func}          // defaults -> noop
+  onEnd={func}            // defaults -> noop
+/>
+```
+
+Example
 -----
 
 ```js
 var React = require('react');
 var YouTube = require('react-youtube');
 
-var App = React.createClass({
+var Example = React.createClass({
+  _onPlay: function() {
+    console.log('PLAYING');
+  },
+
   render: function() {
+    var playerOptions = {
+      height: '390',
+      width: '640',
+      playerVars: { // https://developers.google.com/youtube/player_parameters
+        autoplay: 1
+      }
+    };
+
     return (
-      <div>
-
-        // `id` will be the YT Player iframe's container ID. Completely 
-        // optional, defaults to 'react-yt-player'
-        //
-        // `autoplay` decides whether playback needs to be started manually
-        //  or not, defaults to 'false'
-        //
-        // `url` is  the only parameter needed to play a video. Player automatically
-        // loads it when it is changed.
-        //
-        // `playing`, `stopped`, and `ended` are event handlers called by the player.
-        // They default to no-ops.
-
-        <YouTube id={'react-player'}
-                      autoplay={false}
-                      url={'https://www.youtube.com/watch?v=OvJDiZwGGd4'}
-                      onPlay={this._handlePlay}
-                      onPause={this._handleStop}
-                      onEnd={this._handleEnd}
-        />
-
-        // Simplest version of component
-        <YouTube url={'https://www.youtube.com/watch?v=OvJDiZwGGd4'} />
-      </div>
+      <YouTube
+        url={'http://www.youtube.com/watch?v=2g811Eo7K8U'}
+        opts={playerOptions}
+        onPlay={this._onPlay}
+      />
     );
-  },
-
-  _handlePlay: function() {
-    console.log('video is playing');
-  },
-
-  _handleStop: function() {
-    console.log('video is stopped');
-  },
-
-  // load a new video or call an alert or something like that.
-  _handleEnd: function() {
-  	console.log('video has ended');
   }
 });
+
 ```
 
 ## Caveat
 
  Programmatic control of the player as outlined in the [API docs](https://developers.google.com/youtube/js_api_reference) isn't included.
 
-If decide to take control of it, be aware that the react-youtube uses `loadVideoById`, `cueVideoById`, `addEventListener` and `removeEventListener` internally. 
+If decide to take control of it, be aware that the react-youtube uses `addEventListener` and `removeEventListener` internally.
 
-Using these methods outside the component may cause problems. 
+Using these methods outside the component may cause problems.
 
 # License
 

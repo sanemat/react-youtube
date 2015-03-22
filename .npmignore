@@ -1,3 +1,3 @@
-__tests__
 example
-Makefile
+src
+dist/__tests__
